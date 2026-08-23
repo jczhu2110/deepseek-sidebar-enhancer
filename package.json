@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "DeepSeek 网页版侧边栏对话文件夹管理增强扩展 (Manifest V3)",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

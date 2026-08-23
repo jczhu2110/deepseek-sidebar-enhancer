@@ -108,3 +108,7 @@ npm run dev
 - **列表为空**：DeepSeek 接口结构可能已变更。打开 DevTools 查看 `[DS-Folders/...]` 前缀日志；DOM 兜底应在 200ms 内补上数据。若仍为空，请检查 `src/inject/inpage.ts` 中 `SESSION_API` 路径片段与 `extractSessions` 的字段匹配。
 - **样式异常/串样式**：本扩展所有样式均在 Shadow DOM 内且 Tailwind 已关闭 preflight，不会影响宿主页面；若宿主页面更新了侧边栏 DOM 结构，需检查 `src/utils/native-dom.ts` 的定位策略。
 - **存储重置**：在 DevTools Console 执行 `chrome.storage.local.remove('ds_folder_state')` 后刷新即可。
+
+## 开源协议
+
+本项目基于 [MIT License](./LICENSE) 开源，可自由使用、修改与分发，仅需保留版权声明。
