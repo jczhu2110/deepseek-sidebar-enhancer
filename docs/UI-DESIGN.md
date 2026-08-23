@@ -78,7 +78,13 @@ Tailwind 令牌全部跟随基准变量，宿主字号变化时排版等比缩�
 
 - **滚动自持**：host 复刻原生列表的 flex 伸展/显式高度并 `overflow-y: auto`，
   不依赖宿主父级溢出行为；`.dsf-root` 为 `min-height: 100%`（铺满 host 即铺满侧边栏）。
-  host 滚动条沿用页面样式（与原生一致）。heal 自愈复位时不移动 host。
+  heal 自愈复位时不移动 host。
+- **滚动条自绘**（滚动容器为 Shadow 宿主，样式经 `:host` 伪类生效）：宽 6px，
+  常态浅色 `--dsf-sb-base`；拖动滑块 / 按住轨道时深色 `--dsf-sb-press`
+  （宿主挂 `dsf-sb-pressing`，由「滚动突发分类」判定：无输入伴随的新滚动突发，
+  180ms 保活）；暗色令牌随宿主 `dsf-dark` 切换。**禁止在 `:host` 设置标准
+  `scrollbar-width` / `scrollbar-color`**——Chromium 121+ 会因此切换为标准滚动条
+  渲染，`::-webkit-*` 全部失效；Firefox 无 webkit 伪类，经 `@supports` 兜底提供单色。
 - 根容器：`px-2 pt-3 pb-8`，列表 `gap-1`
 - 自上而下：**新建文件夹入口 → 文件夹树区 → 未分类对话分区 → 全局浮层**
 - 分节头：纯文字（11px + 0.08em 宽字距 + faint 色）+ 右侧 `tabular-nums` 计数；

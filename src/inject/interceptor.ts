@@ -24,6 +24,14 @@ export function installInterceptor(): void {
   const ID_FIELDS = ['id', 'session_id', 'chat_session_id', 'chat_id']
   const TITLE_FIELDS = ['title', 'name', 'summary', 'topic']
   const TAG = '[DS-Folders/inpage]'
+  // 调试日志开关（与 utils/debug.ts 同一标志）：默认静默，localStorage 开启。
+  // 内联读取以保持本函数自包含（toString 注入约束）。
+  let debugOn = false
+  try {
+    debugOn = localStorage.getItem('dsf-debug') === '1'
+  } catch {
+    /* ignore */
+  }
 
   interface SessionLike {
     id: string
@@ -95,7 +103,9 @@ export function installInterceptor(): void {
     if (payload == null) return
     const sessions = extractSessions(payload)
     if (sessions.length) {
-      console.info(`${TAG} 接口捕获 ${sessions.length} 条会话 <- ${url}`)
+      if (debugOn) {
+        console.info(`${TAG} 接口捕获 ${sessions.length} 条会话 <- ${url}`)
+      }
       post({ type: 'sessions', payload: { sessions } })
     }
 
@@ -331,5 +341,7 @@ export function installInterceptor(): void {
   }
 
   post({ type: 'interceptor-ready' })
-  console.info(`${TAG} 拦截器已安装 (fetch+XHR)，SESSION_API="${SESSION_API}"`)
+  if (debugOn) {
+    console.info(`${TAG} 拦截器已安装 (fetch+XHR)，SESSION_API="${SESSION_API}"`)
+  }
 }

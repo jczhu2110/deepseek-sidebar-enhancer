@@ -3,6 +3,7 @@
  * 定位/隐藏原生对话列表、DOM 兜底提取会话、点击转发、主题检测。
  */
 import type { ChatSession } from '@/types'
+import { debugWarn } from '@/utils/debug'
 
 const TAG = '[DS-Folders/dom]'
 /** DeepSeek 会话链接特征：/a/chat/s/<chat_id> */
@@ -658,7 +659,7 @@ export async function triggerNativeAction(
 ): Promise<boolean> {
   const anchor = findChatAnchor(chatId)
   if (!anchor) {
-    console.warn(`${TAG} 未找到原生会话节点: ${chatId}`)
+    debugWarn(`${TAG} 未找到原生会话节点: ${chatId}`)
     return false
   }
   const keywords = ACTION_KEYWORDS[action]
@@ -680,8 +681,8 @@ export async function triggerNativeAction(
   if (await tryContextMenu(anchor, keywords)) return true
   if (await tryUnhidden(anchor, keywords)) return true
 
-  console.warn(`${TAG} 未找到原生「${action}」按钮 (chat=${chatId})`)
-  console.warn(`${TAG} 行结构诊断:`, diagnosticRowSnippet(anchor))
+  debugWarn(`${TAG} 未找到原生「${action}」按钮 (chat=${chatId})`)
+  debugWarn(`${TAG} 行结构诊断:`, diagnosticRowSnippet(anchor))
   return false
 }
 
@@ -732,7 +733,7 @@ export async function nativeRenameSession(
     )
     return true
   }
-  console.warn(`${TAG} 原生重命名输入框未出现 (chat=${chatId})`)
+  debugWarn(`${TAG} 原生重命名输入框未出现 (chat=${chatId})`)
   return false
 }
 
@@ -747,7 +748,7 @@ export function clickNativeChat(chatId: string): boolean {
     (a) => extractChatIdFromHref(a.href) === chatId,
   )
   if (!target) {
-    console.warn(`${TAG} 未找到原生会话节点: ${chatId}`)
+    debugWarn(`${TAG} 未找到原生会话节点: ${chatId}`)
     return false
   }
   target.dispatchEvent(
@@ -880,12 +881,46 @@ export function extractDesignTokens(): DesignTokens {
 
 export type ThemeMode = 'dark' | 'light'
 
+/**
+ * 宿主实测信号：原生侧边栏纸面亮度（感知加权和）。
+ * 与 DeepSeek 的换肤机制无关（类名 / data-theme / 纯变量切换均适用），
+ * 是主题判定最可靠的依据；列表未渲染或背景全透明时返回 null。
+ */
+function isNativeSurfaceDark(): boolean | null {
+  const list = findChatListContainer()
+  let node: HTMLElement | null = list
+  while (node && node !== document.documentElement) {
+    const bg = getComputedStyle(node).backgroundColor
+    const rgb = parseRgbChannels(bg)
+    if (rgb && alphaOf(bg) > 0.5) {
+      const luma =
+        (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255
+      return luma < 0.5
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+/**
+ * 主题判定（多信号，按可靠性排序）：
+ * 1) html / body 上的显式标记（class="dark" 或 data-theme="dark"）；
+ * 2) 根元素 computed color-scheme 声明；
+ * 3) 宿主实测：原生侧边栏纸面亮度（权威信号，跟随任何换肤机制）；
+ * 4) 系统偏好兜底（仅前述信号均不可用时）。
+ */
 export function detectTheme(): ThemeMode {
-  const root = document.documentElement
-  const cls = root.classList
-  const dataTheme = root.getAttribute('data-theme') ?? ''
-  if (cls.contains('dark') || dataTheme === 'dark') return 'dark'
-  if (cls.contains('light') || dataTheme === 'light') return 'light'
+  for (const el of [document.documentElement, document.body]) {
+    const cls = el.classList
+    const dataTheme = el.getAttribute('data-theme') ?? ''
+    if (cls.contains('dark') || dataTheme === 'dark') return 'dark'
+    if (cls.contains('light') || dataTheme === 'light') return 'light'
+  }
+  const scheme = getComputedStyle(document.documentElement).colorScheme
+  if (/\bdark\b/i.test(scheme)) return 'dark'
+  if (/\blight\b/i.test(scheme)) return 'light'
+  const surfaceDark = isNativeSurfaceDark()
+  if (surfaceDark !== null) return surfaceDark ? 'dark' : 'light'
   if (
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -895,13 +930,15 @@ export function detectTheme(): ThemeMode {
   return 'light'
 }
 
-/** 监听 <html> class / data-theme 与系统主题变化 */
+/** 监听 html/body 的 class / data-theme 与系统主题变化 */
 export function watchTheme(callback: (mode: ThemeMode) => void): () => void {
   const observer = new MutationObserver(() => callback(detectTheme()))
-  observer.observe(document.documentElement, {
+  const opts: MutationObserverInit = {
     attributes: true,
     attributeFilter: ['class', 'data-theme'],
-  })
+  }
+  observer.observe(document.documentElement, opts)
+  observer.observe(document.body, opts)
   const media = window.matchMedia('(prefers-color-scheme: dark)')
   const onMedia = () => callback(detectTheme())
   media.addEventListener?.('change', onMedia)

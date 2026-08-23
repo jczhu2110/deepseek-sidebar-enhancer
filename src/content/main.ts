@@ -22,6 +22,7 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useFolderStore } from '@/stores/folder'
 import { setNativeToken } from '@/utils/native-api'
+import { debugLog } from '@/utils/debug'
 
 const TAG = '[DS-Folders]'
 const HOST_ID = 'ds-folders-enhancer-host'
@@ -70,9 +71,7 @@ function wireBridge(): void {
   onBridgeMessage((message) => {
     switch (message.type) {
       case 'sessions':
-        console.info(
-          `${TAG} 收到接口会话 ${message.payload.sessions.length} 条`,
-        )
+        debugLog(`${TAG} 收到接口会话 ${message.payload.sessions.length} 条`)
         chatStore.upsertSessions(message.payload.sessions)
         break
       case 'session-renamed':
@@ -82,7 +81,7 @@ function wireBridge(): void {
         chatStore.removeSession(message.payload.id)
         break
       case 'interceptor-ready':
-        console.info(`${TAG} 拦截器就绪`)
+        debugLog(`${TAG} 拦截器就绪`)
         break
       case 'dsf-location-changed':
         // SPA 路由变化：转发给侧边栏 App（当前会话高亮零延迟跟随）
@@ -164,7 +163,7 @@ function wireDomAndHealing(host: HTMLElement): void {
     // 含文件夹/未分类清理）；拦截器路径若已移除，此处为幂等 no-op
     if (pendingDeleteId && !ids.has(pendingDeleteId)) {
       chatStore.removeSession(pendingDeleteId)
-      console.info(`${TAG} 删除对账命中: ${pendingDeleteId}`)
+      debugLog(`${TAG} 删除对账命中: ${pendingDeleteId}`)
       pendingDeleteId = null
     }
 
@@ -172,7 +171,7 @@ function wireDomAndHealing(host: HTMLElement): void {
     for (const id of missingStrikes) {
       if (!ids.has(id)) {
         chatStore.removeSession(id)
-        console.info(`${TAG} DOM 对账：会话已删除 ${id}`)
+        debugLog(`${TAG} DOM 对账：会话已删除 ${id}`)
       }
     }
     missingStrikes = new Set(
@@ -186,7 +185,7 @@ function wireDomAndHealing(host: HTMLElement): void {
       .join('\n')
     if (sig === lastDomSig) return
     lastDomSig = sig
-    console.info(`${TAG} DOM 提取 ${sessions.length} 条会话`)
+    debugLog(`${TAG} DOM 提取 ${sessions.length} 条会话`)
     chatStore.upsertSessions(sessions)
   }
 
@@ -253,6 +252,20 @@ function applyDesignTokens(
   prevRowHeight: number | null,
 ): number | null {
   const rowHeight = tokens.rowHeight ?? prevRowHeight
+  // 先清除旧的内联基准变量：主题切换后若某项重新提取失败（如列表瞬时不
+  // 可见），残留的旧主题内联值（优先级高于 .dark 回退色板）会导致明暗错配；
+  // 清除后该项自然回落到 .dsf-root(.dark) 的色板
+  for (const key of [
+    '--dsf-surface',
+    '--dsf-text',
+    '--dsf-font',
+    '--dsf-font-size',
+    '--dsf-radius',
+    '--dsf-row-h',
+    '--dsf-accent',
+  ]) {
+    el.style.removeProperty(key)
+  }
   if (tokens.surface) el.style.setProperty('--dsf-surface', tokens.surface)
   if (tokens.text) el.style.setProperty('--dsf-text', tokens.text)
   if (tokens.fontFamily) el.style.setProperty('--dsf-font', tokens.fontFamily)
@@ -354,9 +367,9 @@ async function bootstrap(): Promise<void> {
   mimicNativeLayout(nativeList, host)
   hideNativeChatList(nativeList)
   const multiSelectHidden = hideNativeMultiSelect(nativeList)
-  console.info(`${TAG} 已定位并隐藏原生列表`, nativeList)
+  debugLog(`${TAG} 已定位并隐藏原生列表`, nativeList)
   if (multiSelectHidden > 0) {
-    console.info(`${TAG} 已隐藏原生多选按钮 ${multiSelectHidden} 个`)
+    debugLog(`${TAG} 已隐藏原生多选按钮 ${multiSelectHidden} 个`)
   }
 
   const shadow = host.attachShadow({ mode: 'open' })
@@ -400,12 +413,12 @@ async function bootstrap(): Promise<void> {
     setTimeout(() => {
       const n = hideNativeMultiSelect(nativeList)
       if (n > 0) {
-        console.info(`${TAG} 延迟 ${delay}ms 后又隐藏了 ${n} 个多选按钮`)
+        debugLog(`${TAG} 延迟 ${delay}ms 后又隐藏了 ${n} 个多选按钮`)
       }
     }, delay)
   }
 
-  console.info(`${TAG} 侧边栏增强已挂载`)
+  debugLog(`${TAG} 侧边栏增强已挂载`)
 }
 
 void bootstrap()

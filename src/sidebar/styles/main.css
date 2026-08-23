@@ -50,6 +50,8 @@
       0 24px 64px rgba(0, 0, 0, 0.14);
 
     min-height: 100%;
+    /* UA 原生组件适配：输入光标 / 选区 / tooltip 等随主题渲染 */
+    color-scheme: light;
     background: var(--dsf-surface);
     color: var(--dsf-text);
     font-family:
@@ -70,12 +72,15 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* 暗色回退色板（宿主提取值以内联变量优先于本块） */
+  /* 暗色回退色板（宿主提取值以内联变量优先于本块）。
+     派生令牌（hover/active/faint 等）以 text 为基准 color-mix，
+     基准切换为亮色文字后自动派生出暗色系交互色，无需逐一覆盖 */
   .dsf-root.dark {
     --dsf-text: #e7e5e1;
     --dsf-surface: #191817;
     --dsf-accent: #7a8fff;
     --dsf-danger: #d5695f;
+    color-scheme: dark;
     --dsf-shadow-pop:
       0 2px 6px rgba(0, 0, 0, 0.2),
       0 12px 32px rgba(0, 0, 0, 0.4);

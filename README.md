@@ -23,22 +23,30 @@ Vue 3 (`<script setup>`) + TypeScript + Pinia + vuedraggable@next + Tailwind CSS
 ```
 src/
 ├── types/index.ts              # ChatSession / Folder / StorageSchema / 桥消息类型
-├── inject/inpage.ts            # MAIN world：劫持 fetch/XHR，解析会话接口并 postMessage
+├── inject/
+│   ├── interceptor.ts          # 拦截器实现（自包含）：劫持 fetch/XHR 解析会话接口、
+│   │                           # 捕获鉴权 token、代发删除/重命名/分享请求
+│   └── inpage.ts               # MAIN world 入口：CSP 兜底，异步安装拦截器
+├── content/
+│   ├── inject-bootstrap.ts     # document_start 同步注入拦截器到 MAIN world
+│   └── main.ts                 # ISOLATED 入口：Shadow DOM 挂载、监听接线、自愈
 ├── utils/
 │   ├── storage.ts              # chrome.storage.local 封装（schema 校验、去抖写、变更订阅）
 │   ├── bridge.ts               # postMessage 消息桥（来源 + 类型白名单校验）
-│   └── native-dom.ts           # 原生列表定位/隐藏、DOM 兜底提取、点击转发、主题检测
+│   ├── native-api.ts           # 原生 API 主动请求（删除/重命名/分享）双路径封装
+│   ├── native-dom.ts           # 原生列表定位/隐藏、DOM 兜底提取、点击转发、主题检测
+│   ├── dnd.ts                  # 拖拽类型过滤（data-dsf-kind，防跨组模型污染）
+│   └── debug.ts                # 调试日志开关（默认静默，localStorage 标志开启）
 ├── stores/
 │   ├── chat.ts                 # 会话 Map、upsert/重命名/删除同步
 │   └── folder.ts               # 文件夹 CRUD、映射、折叠态、排序、持久化
-├── sidebar/
-│   ├── App.vue                 # 根组件：新建按钮、文件夹排序、未分类列表、确认弹窗
-│   ├── components/
-│   │   ├── FolderItem.vue      # 文件夹：折叠/重命名/删除/头部放置目标/组内拖拽
-│   │   ├── ChatItem.vue        # 对话卡片：点击跳转、拖拽数据携带
-│   │   └── ConfirmDialog.vue   # 删除确认弹窗
-│   └── styles/main.css         # Tailwind 入口 + 主题变量 + 拖拽态/微动效
-└── content/main.ts             # ISOLATED 入口：Shadow DOM 挂载、监听接线、自愈
+└── sidebar/
+    ├── App.vue                 # 根组件：新建按钮、文件夹排序、未分类列表、删除走原生确认
+    ├── components/
+    │   ├── FolderItem.vue      # 文件夹：折叠/重命名/行内删除确认态/头部放置目标/组内拖拽
+    │   └── ChatItem.vue        # 对话卡片：点击跳转、拖拽数据携带
+    ├── icons.ts                # lucide 线条图标系统（统一描边规范）
+    └── styles/main.css         # Tailwind 入口 + 主题变量 + 滚动条/拖拽态/微动效
 ```
 
 ## 隐私与权限
@@ -60,7 +68,8 @@ src/
 
 1. **拦截页面自身的网络请求**：在 `chat.deepseek.com` 页面内临时包装 `window.fetch` / `XMLHttpRequest`，仅捕获 `/api/v0/chat_session/*` 相关请求的**响应**用于解析会话标题与列表——数据全程留在当前页面内存中，不发送到任何第三方服务器；
 2. **读取请求头中的登录凭证（Authorization Token）**：仅用于在你主动执行删除/重命名/分享时，以你的身份向 DeepSeek 官方接口发起与网页端完全相同的请求。Token 只存在于页面内存，不写入存储、不输出到日志、不离开浏览器；
-3. **本地存储**：仅保存文件夹名称、`chatId ↔ 文件夹` 映射与排序（`chrome.storage.local`）。**不存储任何对话内容**。卸载扩展即彻底清除。
+3. **本地存储**：仅保存文件夹名称、`chatId ↔ 文件夹` 映射与排序（`chrome.storage.local`）。**不存储任何对话内容**。卸载扩展即彻底清除；
+4. **控制台输出**：默认**不在控制台输出任何日志**（包括对话标题等页面内容）；仅当你按「常见问题」中的方式显式开启调试日志后，才会输出排障信息。
 
 ### 已知架构限制
 
@@ -105,7 +114,7 @@ npm run dev
 
 ## 常见问题
 
-- **列表为空**：DeepSeek 接口结构可能已变更。打开 DevTools 查看 `[DS-Folders/...]` 前缀日志；DOM 兜底应在 200ms 内补上数据。若仍为空，请检查 `src/inject/inpage.ts` 中 `SESSION_API` 路径片段与 `extractSessions` 的字段匹配。
+- **列表为空**：DeepSeek 接口结构可能已变更。开启调试日志排查：在 DevTools Console 执行 `localStorage.setItem('dsf-debug', '1')` 并刷新页面，查看 `[DS-Folders/...]` 前缀输出（默认静默）；DOM 兜底应在 200ms 内补上数据。若仍为空，请检查 `src/inject/interceptor.ts` 中 `SESSION_API` 路径片段与 `extractSessions` 的字段匹配。
 - **样式异常/串样式**：本扩展所有样式均在 Shadow DOM 内且 Tailwind 已关闭 preflight，不会影响宿主页面；若宿主页面更新了侧边栏 DOM 结构，需检查 `src/utils/native-dom.ts` 的定位策略。
 - **存储重置**：在 DevTools Console 执行 `chrome.storage.local.remove('ds_folder_state')` 后刷新即可。
 
