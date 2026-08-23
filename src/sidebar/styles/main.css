@@ -1,0 +1,403 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 主题令牌：宿主对齐（Host-Aligned） =====
+   基准令牌（文字 / 纸面 / 强调色 / 字号 / 圆角 / 行高）在挂载与主题切换时
+   由 content script 从 DeepSeek 原生侧边栏实时提取，以内联 CSS 变量覆盖；
+   未提取到时回退到下列内置值（暖灰纸面色板）。
+   其余令牌全部由基准经 color-mix 派生 —— 基准变化时整套交互色
+   自动适配明暗主题与宿主换肤。设计规范见 docs/UI-DESIGN.md。
+   所有样式限定 .dsf-root 作用域（Shadow DOM）。 */
+@layer base {
+  .dsf-root {
+    /* ---- 基准令牌（可被宿主提取值内联覆盖） ---- */
+    --dsf-text: #292824;
+    --dsf-surface: #f5f4f1;
+    --dsf-accent: #4d6bfe;
+    --dsf-danger: #c4493f;
+    --dsf-font-size: 13px;
+    --dsf-radius: 6px;
+    --dsf-row-h: 32px;
+
+    /* ---- 派生令牌（跟随基准自动适配） ---- */
+    /* 文字色阶 */
+    --dsf-text-dim: color-mix(in srgb, var(--dsf-text) 62%, var(--dsf-surface));
+    --dsf-text-faint: color-mix(in srgb, var(--dsf-text) 38%, var(--dsf-surface));
+    /* 交互底色（中性，不引入色相） */
+    --dsf-hover: color-mix(in srgb, var(--dsf-text) 4.5%, transparent);
+    --dsf-active: color-mix(in srgb, var(--dsf-text) 7%, transparent);
+    /* hover 底的不透明等效色（行内浮层遮挡底色用，避免半透明叠加出可见色块） */
+    --dsf-hover-solid: color-mix(in srgb, var(--dsf-text) 4.5%, var(--dsf-surface));
+    /* 发丝线：仅保留给滚动条、拖放反馈等功能性细节，不作装饰 */
+    --dsf-border: color-mix(in srgb, var(--dsf-text) 7%, transparent);
+    --dsf-border-strong: color-mix(in srgb, var(--dsf-text) 20%, transparent);
+    /* 强调色（克制使用：只出现在焦点环与主操作文字按钮上） */
+    --dsf-accent-faint: color-mix(in srgb, var(--dsf-accent) 8%, transparent);
+    --dsf-ring: color-mix(in srgb, var(--dsf-accent) 35%, transparent);
+    /* 危险操作：暖调朱红（扩展自有语义色，无宿主来源） */
+    --dsf-danger-soft: color-mix(in srgb, var(--dsf-danger) 9%, transparent);
+    /* 浮层表面：向文字色偏移一档（暗色提亮 / 亮色微沉，均自然分层） */
+    --dsf-surface-raised: color-mix(in srgb, var(--dsf-text) 4%, var(--dsf-surface));
+    /* 输入底色（无边框输入） */
+    --dsf-field: color-mix(in srgb, var(--dsf-text) 5%, transparent);
+    /* 阴影：纯环境光，无描边 */
+    --dsf-shadow-pop:
+      0 2px 6px rgba(0, 0, 0, 0.04),
+      0 12px 32px rgba(0, 0, 0, 0.1);
+    --dsf-shadow-modal:
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      0 24px 64px rgba(0, 0, 0, 0.14);
+
+    min-height: 100%;
+    background: var(--dsf-surface);
+    color: var(--dsf-text);
+    font-family:
+      var(
+        --dsf-font,
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        'Helvetica Neue',
+        'PingFang SC',
+        'Hiragino Sans GB',
+        'Microsoft YaHei',
+        sans-serif
+      );
+    font-size: var(--dsf-font-size);
+    line-height: 1.45;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 暗色回退色板（宿主提取值以内联变量优先于本块） */
+  .dsf-root.dark {
+    --dsf-text: #e7e5e1;
+    --dsf-surface: #191817;
+    --dsf-accent: #7a8fff;
+    --dsf-danger: #d5695f;
+    --dsf-shadow-pop:
+      0 2px 6px rgba(0, 0, 0, 0.2),
+      0 12px 32px rgba(0, 0, 0, 0.4);
+    --dsf-shadow-modal:
+      0 4px 12px rgba(0, 0, 0, 0.25),
+      0 24px 64px rgba(0, 0, 0, 0.5);
+  }
+
+  .dsf-root * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 统一焦点环：键盘导航可见，鼠标点击不触发 */
+  .dsf-root *:focus-visible {
+    outline: 2px solid var(--dsf-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .dsf-root *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--dsf-active);
+  }
+}
+
+/* ===== 列表行基类：统一行规格（行高对齐宿主对话项） =====
+   新建按钮 / 文件夹头 / 对话行 / 菜单项共用，禁止在组件里复制行内边距 */
+.dsf-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--dsf-row-h, 32px);
+  padding: 4px 10px;
+  border-radius: var(--dsf-radius, 6px);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+/* ===== 侧边栏间距体系（唯一事实来源，新增样式须对齐）=====
+   覆盖容器（Shadow DOM 宿主 → .dsf-root → 根滚动容器）：
+   - host：无 padding，overflow-y:auto 自滚动，布局复刻原生列表
+   - .dsf-root：无 padding
+   - 根滚动容器（App.vue）：px-2(8px) 左右 / 顶部 0（紧贴原生
+     「开启新对话」按钮）/ pb-8(32px) 底（滚动缓冲）/ gap-1(4px) 垂直节奏
+   列表行（.dsf-row，文件夹头/对话行统一）：padding 4px 10px，gap 8px，
+   min-height 提取自原生行高（--dsf-row-h）
+   垂直节奏（2/4px 网格）：
+   - 相邻行/相邻文件夹：2px（根文件夹列表 / 未分类列表 / 嵌套混排均 gap-0.5）
+   - 区块级间距（根滚动容器 gap-1）：4px
+   - 分节留白：未分类标题 mt-4(16px) + mb-1(4px)
+   - 新建文件夹按钮与首个文件夹：mb-1(4px)
+   - 嵌套层级缩进：ml-[18px]（对齐父行文字起点）
+   行内元素：计数徽标 px-1.5 py-px；确认删除按钮 px-2 py-[3px]；
+   hover 操作组 p-0.5 gap-0.5（右缘 right-2 与行 padding 对齐） */
+
+/* ===== 幽灵按钮（Ghost Button）：无底、无边框，文字即界面 ===== */
+@layer components {
+  .dsf-btn-ghost {
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    border-radius: calc(var(--dsf-radius, 6px) - 2px);
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: var(--dsf-font-size, 13px);
+    line-height: calc(var(--dsf-font-size, 13px) + 5px);
+    color: var(--dsf-text-dim);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      opacity 120ms ease;
+  }
+  .dsf-btn-ghost:hover {
+    background: var(--dsf-hover);
+    color: var(--dsf-text);
+  }
+  .dsf-btn-ghost:active {
+    transform: scale(0.98);
+  }
+  .dsf-btn-ghost:disabled {
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: none;
+  }
+  /* 主操作：文字承载强调色（iOS 式文字按钮） */
+  .dsf-btn-ghost--accent {
+    color: var(--dsf-accent);
+  }
+  .dsf-btn-ghost--accent:hover {
+    background: var(--dsf-accent-faint);
+    color: var(--dsf-accent);
+  }
+  /* 危险操作：文字为暖调朱红 */
+  .dsf-btn-ghost--danger {
+    color: var(--dsf-danger);
+  }
+  .dsf-btn-ghost--danger:hover {
+    background: var(--dsf-danger-soft);
+    color: var(--dsf-danger);
+  }
+}
+
+/* ===== 图标系统：lucide 线条图标（iOS/Fluent 线性语言）=====
+   颜色一律经语义类挂载，禁止组件内散落硬编码；
+   悬停/按下态由 .dsf-icon-btn 内建，选中/禁用态用修饰类。
+   描边与尺寸规范见 src/sidebar/icons.ts。 */
+.dsf-icon {
+  flex-shrink: 0;
+  color: var(--dsf-text-dim);
+  transition:
+    color 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+/* 语义色变体 */
+.dsf-icon--faint { color: var(--dsf-text-faint); }
+.dsf-icon--selected { color: var(--dsf-text); }
+.dsf-icon--accent { color: var(--dsf-accent); }
+.dsf-icon--danger { color: var(--dsf-danger); }
+/* 菜单图标：跟随文字色但弱一档 */
+.dsf-icon--soft {
+  color: var(--dsf-text);
+  opacity: 0.6;
+}
+/* 禁用态：褪色 + 不可交互 */
+.dsf-icon--disabled {
+  color: var(--dsf-text-faint);
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* 行悬停联动：所在行（.group）悬停时提亮一级 / 至正文色 */
+.group:hover .dsf-icon--group-hover { color: var(--dsf-text-dim); }
+.group:hover .dsf-icon--group-hover-text { color: var(--dsf-text); }
+
+/* 图标按钮（Material 风格 icon button）：默认 / 悬停 / 按下 / 禁用四态内建 */
+.dsf-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  border-radius: calc(var(--dsf-radius, 6px) - 2px);
+  cursor: pointer;
+  color: var(--dsf-text-dim);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+.dsf-icon-btn:hover {
+  background: var(--dsf-hover);
+  color: var(--dsf-text);
+}
+.dsf-icon-btn:active {
+  transform: scale(0.94);
+}
+.dsf-icon-btn:disabled {
+  background: transparent;
+  color: var(--dsf-text-faint);
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+/* 按钮内图标颜色始终继承按钮状态色 */
+.dsf-icon-btn .dsf-icon { color: inherit; }
+/* 危险变体：悬停转朱红 */
+.dsf-icon-btn--danger:hover {
+  background: var(--dsf-danger-soft);
+  color: var(--dsf-danger);
+}
+/* 选中行内变体：悬停底色加深一档 */
+.dsf-icon-btn--inset:hover { background: var(--dsf-active); }
+
+/* ===== 输入框（Material 风格：无边框底色 + 聚焦强调下划线）=====
+   默认：淡底；悬停：底色加深一档；聚焦：品牌色下划线；
+   禁用：褪色不可交互。行内紧凑变体用于行内重命名。 */
+.dsf-input {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--dsf-radius, 6px);
+  background: var(--dsf-field);
+  color: var(--dsf-text);
+  font-family: inherit;
+  font-size: var(--dsf-font-size, 13px);
+  line-height: calc(var(--dsf-font-size, 13px) + 6px);
+  padding: 7px 10px;
+  outline: none;
+  box-shadow: inset 0 -1.5px 0 transparent;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+.dsf-input::placeholder {
+  color: var(--dsf-text-faint);
+}
+.dsf-input:hover {
+  background: var(--dsf-active);
+}
+.dsf-input:focus {
+  background: var(--dsf-field);
+  box-shadow: inset 0 -1.5px 0 var(--dsf-accent);
+}
+.dsf-input:disabled {
+  opacity: 0.55;
+}
+/* 行内紧凑变体（行内重命名） */
+.dsf-input--sm {
+  line-height: calc(var(--dsf-font-size, 13px) + 5px);
+  padding: 4px 8px;
+  border-radius: calc(var(--dsf-radius, 6px) - 2px);
+}
+
+/* ===== 滚动条（极细，贴近纸面） ===== */
+.dsf-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dsf-border) transparent;
+}
+.dsf-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.dsf-scroll::-webkit-scrollbar-thumb {
+  background: var(--dsf-border);
+  border-radius: 2px;
+}
+.dsf-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--dsf-border-strong);
+}
+.dsf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== Sortable 拖拽态 =====
+   dsf-ghost：占位虚影（仅降低不透明度）；dsf-chosen：被选中项（浅灰托底） */
+.dsf-ghost {
+  opacity: 0.35;
+  border-radius: var(--dsf-radius, 6px);
+}
+.dsf-chosen {
+  background: var(--dsf-hover);
+  border-radius: var(--dsf-radius, 6px);
+}
+
+/* 拖拽放置目标反馈：中性底 + 极细内描边（无色相、不用蓝，
+   符合单色克制语言）。挂载于文件夹头 / 根放置区 / 未分类分节头。
+   注意：行级 hover:bg-... 工具类特异性为 (0,2,0)，且构建产物中
+   Tailwind 的 hover 变体排在自定义 CSS 之后（实测 bundle 顺序），
+   同特异性时工具类必胜。故双写类名提升特异性至 (0,3,0)，
+   与输出顺序无关地压过 hover 工具类 */
+.dsf-drop-active.dsf-drop-active,
+.dsf-drop-active.dsf-drop-active:hover {
+  background: var(--dsf-active);
+  box-shadow: inset 0 0 0 1.5px var(--dsf-border-strong);
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* ===== 微动效 ===== */
+
+/* 列表项 / 浮层基础进入：fade + 下滑 3px */
+@keyframes dsf-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dsf-enter {
+  animation: dsf-fade-slide 160ms ease-out;
+}
+
+/* 浮层进入：scale(0.96→1) + fade + 4px 位移 */
+@keyframes dsf-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.dsf-pop {
+  animation: dsf-pop-in 160ms ease-out;
+  transform-origin: top left;
+}
+
+/* 遮罩淡入 */
+@keyframes dsf-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.dsf-overlay {
+  animation: dsf-overlay-in 160ms ease-out;
+}
+
+/* Toast 淡入淡出（fade + 6px 上移；translateX 抵消居中平移） */
+.dsf-fade-enter-active,
+.dsf-fade-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+.dsf-fade-enter-from,
+.dsf-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+}

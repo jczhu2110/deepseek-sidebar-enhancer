@@ -1,0 +1,32 @@
+{
+  "name": "deepseek-sidebar-enhancer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DeepSeek 网页版侧边栏对话文件夹管理增强扩展 (Manifest V3)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-vue-next": "^0.469.0",
+    "pinia": "^2.3.0",
+    "sortablejs": "^1.15.6",
+    "vue": "^3.5.13",
+    "vuedraggable": "^4.1.0"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.29",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^26.1.2",
+    "@types/sortablejs": "^1.15.8",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.1",
+    "tailwindcss": "3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.2.0"
+  }
+}
