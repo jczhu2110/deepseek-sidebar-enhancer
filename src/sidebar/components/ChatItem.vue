@@ -116,7 +116,7 @@ function onMoreClick(event: MouseEvent): void {
     role="button"
     :tabindex="editing ? -1 : 0"
     :aria-current="active ? 'true' : undefined"
-    class="dsf-row group relative cursor-pointer text-body"
+    class="dsf-row group relative cursor-pointer text-body min-h-[28px] py-[3px]"
     :class="
       active
         ? 'bg-[var(--dsf-active)] text-[var(--dsf-text)]'

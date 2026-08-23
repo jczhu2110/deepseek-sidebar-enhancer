@@ -284,6 +284,54 @@ function mimicNativeLayout(nativeList: HTMLElement, host: HTMLElement): void {
   host.style.overflowY = 'auto'
 }
 
+/**
+ * 滚动条按压态（宿主为滚动容器）：
+ * Chromium 滚动条交互不产生 DOM 事件，且 :active 伪类悬停滑块时会被误触发，
+ * 故用「滚动突发」分类判定拖动滑块：
+ * - wheel/键盘/触摸输入后 250ms 内开始的滚动突发 → 常规滚动（含惯性余韵，浅色）
+ * - 无输入伴随开始的新突发（间隔 >150ms 视为新突发）→ 拖动滑块/按住轨道
+ *   → 挂 dsf-sb-pressing（深色）。
+ * 拖动进行时 scroll 以 ~16ms 间隔刷新保活定时器，窗口只需覆盖拖动微停顿，
+ * 收紧到 180ms 让松手回落接近即时（原 400ms 体感延迟明显）；
+ * 悬停不产生 scroll 事件，永不进入按压态。
+ */
+function wireScrollbarStates(host: HTMLElement): void {
+  let lastInputAt = 0
+  let burstIsPress = false
+  let lastScrollAt = 0
+  let idleTimer: ReturnType<typeof setTimeout> | null = null
+
+  const markInput = (): void => {
+    lastInputAt = performance.now()
+  }
+  host.addEventListener('wheel', markInput, { passive: true })
+  host.addEventListener('touchmove', markInput, { passive: true })
+  host.addEventListener('keydown', markInput)
+
+  host.addEventListener(
+    'scroll',
+    () => {
+      const now = performance.now()
+      if (now - lastScrollAt > 150) {
+        // 新突发：按是否有输入伴随分类（惯性余韵随突发起始分类，不误判）
+        burstIsPress = now - lastInputAt > 250
+      }
+      lastScrollAt = now
+      host.classList.toggle('dsf-sb-pressing', burstIsPress)
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(
+        () => host.classList.remove('dsf-sb-pressing'),
+        180,
+      )
+    },
+    { passive: true },
+  )
+
+  window.addEventListener('pagehide', () => {
+    if (idleTimer) clearTimeout(idleTimer)
+  })
+}
+
 async function bootstrap(): Promise<void> {
   if (document.documentElement.hasAttribute(MOUNT_FLAG)) return
   document.documentElement.setAttribute(MOUNT_FLAG, '1')
@@ -318,7 +366,10 @@ async function bootstrap(): Promise<void> {
 
   const mountEl = document.createElement('div')
   mountEl.className = 'dsf-root'
-  if (detectTheme() === 'dark') mountEl.classList.add('dark')
+  if (detectTheme() === 'dark') {
+    mountEl.classList.add('dark')
+    host.classList.add('dsf-dark')
+  }
   shadow.appendChild(mountEl)
 
   const pinia = createPinia()
@@ -336,8 +387,12 @@ async function bootstrap(): Promise<void> {
   let rowHeight = applyDesignTokens(mountEl, tokens, null)
   watchTheme((mode) => {
     mountEl.classList.toggle('dark', mode === 'dark')
+    // 宿主同步暗色标记：:host(.dsf-dark) 的滚动条令牌随之切换
+    host.classList.toggle('dsf-dark', mode === 'dark')
     rowHeight = applyDesignTokens(mountEl, extractDesignTokens(), rowHeight)
   })
+
+  wireScrollbarStates(host)
 
   // 延迟重检：DeepSeek 可能懒加载多选按钮，多次尝试确保隐藏
   const recheckDelays = [1000, 3000, 5000, 10000]

@@ -57,6 +57,11 @@ const folderStore = useFolderStore()
 /** 当前文件夹根元素（作为拖拽的「源文件夹边界」） */
 const rootEl = ref<HTMLElement | null>(null)
 
+/** 数量徽标：子树内全部对话数（含子级文件夹中的对话，不含子级文件夹本身） */
+const subtreeChatCount = computed(
+  () => folderStore.countFolderTree(props.folder.id).chatCount,
+)
+
 /* ---------- 行内重命名 ---------- */
 const editing = computed(() => folderStore.editingFolderId === props.folder.id)
 const draftName = ref('')
@@ -150,8 +155,12 @@ onBeforeUnmount(() => {
   if (confirmResetTimer) clearTimeout(confirmResetTimer)
 })
 
-/** 头部点击：确认态下点击行内（非按钮）区域取消确认；常态切换折叠 */
-function onHeaderClick(): void {
+/** 头部点击：确认态下点击行内（非按钮）区域取消确认；常态切换折叠。
+ *  鼠标点击后头部保持聚焦会让 group-focus-within 令操作按钮持续可见，
+ *  点击完成后主动归还焦点，按钮随鼠标离开隐藏；
+ *  键盘路径（Enter/Space）走 onHeaderKeydown 不触发 click，聚焦保留不受影响。 */
+function onHeaderClick(event: MouseEvent): void {
+  ;(event.currentTarget as HTMLElement | null)?.blur()
   if (confirmingDelete.value) {
     cancelDeleteConfirm()
     return
@@ -380,7 +389,10 @@ onBeforeUnmount(() => window.removeEventListener('dragend', onWinDragEnd))
         @blur="commitRename"
       />
       <template v-else>
-        <span class="min-w-0 flex-1 truncate text-subheading text-[var(--dsf-text)]">
+        <span
+          class="min-w-0 flex-1 truncate text-subheading text-[var(--dsf-text)]"
+          :title="folder.name"
+        >
           {{ folder.name }}
         </span>
         <!-- 删除确认态：尾部红色确认按钮，再次点击才真正删除 -->
@@ -401,8 +413,9 @@ onBeforeUnmount(() => window.removeEventListener('dragend', onWinDragEnd))
         <span
           v-else
           class="shrink-0 rounded-full px-1.5 py-px text-micro leading-[16px] text-[var(--dsf-text-faint)] transition-opacity duration-fast group-hover:opacity-0"
+          :title="`含子级文件夹共 ${subtreeChatCount} 个对话`"
         >
-          {{ folder.items.length }}
+          {{ subtreeChatCount }}
         </span>
       </template>
 

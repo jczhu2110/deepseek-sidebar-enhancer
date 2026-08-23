@@ -126,8 +126,10 @@
    - .dsf-root：无 padding
    - 根滚动容器（App.vue）：px-2(8px) 左右 / 顶部 0（紧贴原生
      「开启新对话」按钮）/ pb-8(32px) 底（滚动缓冲）/ gap-1(4px) 垂直节奏
-   列表行（.dsf-row，文件夹头/对话行统一）：padding 4px 10px，gap 8px，
-   min-height 提取自原生行高（--dsf-row-h）
+   列表行（.dsf-row，文件夹头/对话行统一基准）：padding 4px 10px，gap 8px，
+   min-height 提取自原生行高（--dsf-row-h）。
+   对话卡片变体（ChatItem 覆盖）：py-[3px] + min-h-[28px]，
+   比文件夹头更紧凑（覆盖工具类与 .dsf-row 同特异性，级联靠后者胜）
    垂直节奏（2/4px 网格）：
    - 相邻行/相邻文件夹：2px（根文件夹列表 / 未分类列表 / 嵌套混排均 gap-0.5）
    - 区块级间距（根滚动容器 gap-1）：4px
@@ -298,23 +300,45 @@
   border-radius: calc(var(--dsf-radius, 6px) - 2px);
 }
 
-/* ===== 滚动条（极细，贴近纸面） ===== */
-.dsf-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--dsf-border) transparent;
+/* ===== 滚动条（滚动容器为 Shadow 宿主，经 :host 伪类生效）=====
+   两级：常态浅色（闲置/悬停/滚动统一）→ 拖动滑块深色（dsf-sb-pressing，
+   main.ts 以「滚动突发分类」挂载）。
+   关键：不得在 :host 上设置 scrollbar-width/scrollbar-color 标准属性——
+   Chromium 121+ 一旦出现标准属性即切换为标准滚动条渲染，::-webkit-*
+   全部失效，且标准滚动条自带 UA 悬停加深（实测，无法关闭）。
+   Firefox 无 webkit 伪类，标准属性仅在 @supports 兜底分支内提供单色。 */
+:host {
+  --dsf-sb-base: rgba(0, 0, 0, 0.22);
+  --dsf-sb-press: rgba(0, 0, 0, 0.4);
 }
-.dsf-scroll::-webkit-scrollbar {
-  width: 4px;
+:host(.dsf-dark) {
+  --dsf-sb-base: rgba(255, 255, 255, 0.26);
+  --dsf-sb-press: rgba(255, 255, 255, 0.48);
 }
-.dsf-scroll::-webkit-scrollbar-thumb {
-  background: var(--dsf-border);
-  border-radius: 2px;
+:host::-webkit-scrollbar {
+  width: 6px;
 }
-.dsf-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--dsf-border-strong);
-}
-.dsf-scroll::-webkit-scrollbar-track {
+:host::-webkit-scrollbar-track {
   background: transparent;
+}
+:host::-webkit-scrollbar-thumb {
+  background: var(--dsf-sb-base);
+  border-radius: 3px;
+}
+/* 拖动滑块 / 按住轨道（滚动突发无输入伴随）：深色，状态切换均即时生效 */
+:host(.dsf-sb-pressing)::-webkit-scrollbar-thumb {
+  background: var(--dsf-sb-press);
+}
+
+/* Firefox 兜底：无 webkit 伪类时用标准属性提供常态单色（按压态不可用） */
+@supports not selector(::-webkit-scrollbar) {
+  :host {
+    scrollbar-width: thin;
+    scrollbar-color: var(--dsf-sb-base) transparent;
+  }
+  :host(.dsf-sb-pressing) {
+    scrollbar-color: var(--dsf-sb-press) transparent;
+  }
 }
 
 /* ===== Sortable 拖拽态 =====
