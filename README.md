@@ -14,6 +14,22 @@
 - **操作反馈**：拖放目标有中性高亮反馈（非蓝色）；重命名 / 删除等异步操作有 pending 态；接口失败保留原状可重试（不静默改本地）；Toast 出现在侧边栏区域内底部居中
 - **持久化**：文件夹结构、`chatId ↔ folderId` 映射、未分类顺序均存储于 `chrome.storage.local`，多标签页自动同步
 
+## 界面预览
+
+> 以下为按扩展实际样式（宿主对齐设计令牌）绘制的功能示意图。
+
+<p align="center">
+  <img src="docs/images/preview-light.png" width="32%" alt="浅色主题">
+  <img src="docs/images/preview-dark.png" width="32%" alt="深色主题">
+</p>
+<p align="center"><sub>浅色 / 深色主题自动跟随宿主换肤 —— 文件夹嵌套、子树对话计数徽标、悬停操作</sub></p>
+
+<p align="center">
+  <img src="docs/images/preview-drag.png" width="32%" alt="拖拽归类">
+  <img src="docs/images/preview-menu.png" width="32%" alt="更多菜单">
+</p>
+<p align="center"><sub>拖拽归类（放置目标中性高亮，折叠文件夹悬停 600ms 自动展开）与「更多」操作菜单</sub></p>
+
 ## 技术栈
 
 Vue 3 (`<script setup>`) + TypeScript + Pinia + vuedraggable@next + Tailwind CSS v3（关闭 preflight，`?inline` 注入 Shadow Root）+ Vite 5 + @crxjs/vite-plugin
@@ -106,10 +122,11 @@ npm run dev
 - [ ] 删除文件夹弹确认框，确认后组内对话回到未分类顶部
 - [ ] 点击对话卡片正常打开对应会话，当前会话高亮；**在原生页面内切换会话（搜索/返回），高亮即时跟随（无约 800ms 延迟）**
 - [ ] 在 DeepSeek 原生 UI 中重命名/删除对话，增强列表同步更新
-- [ ] **长列表滚动正常（host 自滚动），滚动条样式与页面一致**
+- [ ] **长列表滚动正常（host 自滚动），滚动条样式与页面一致；拖动滑块时滑块加深、松手即时回落，悬停不触发加深**
 - [ ] **全键盘流程**：Tab 进入对话行 → Enter 打开；「更多」按钮 → Enter 打开菜单 → ↑/↓ 切换 → Esc 关闭且焦点回到按钮；删除确认框打开时焦点在「取消」，Esc 关闭
 - [ ] **行内重命名提交期间输入框禁用 + spinner**；失败时恢复可编辑且可再次提交
 - [ ] **Toast 出现在侧边栏内底部居中**（宽屏下不出现在页面中央）
+- [ ] **暗色主题下输入光标 / 选区等 UA 原生组件颜色正确（color-scheme 跟随）**
 - [ ] 刷新后折叠/顺序持久化无回归
 
 ## 常见问题
@@ -117,6 +134,12 @@ npm run dev
 - **列表为空**：DeepSeek 接口结构可能已变更。开启调试日志排查：在 DevTools Console 执行 `localStorage.setItem('dsf-debug', '1')` 并刷新页面，查看 `[DS-Folders/...]` 前缀输出（默认静默）；DOM 兜底应在 200ms 内补上数据。若仍为空，请检查 `src/inject/interceptor.ts` 中 `SESSION_API` 路径片段与 `extractSessions` 的字段匹配。
 - **样式异常/串样式**：本扩展所有样式均在 Shadow DOM 内且 Tailwind 已关闭 preflight，不会影响宿主页面；若宿主页面更新了侧边栏 DOM 结构，需检查 `src/utils/native-dom.ts` 的定位策略。
 - **存储重置**：在 DevTools Console 执行 `chrome.storage.local.remove('ds_folder_state')` 后刷新即可。
+
+## 免责声明
+
+- 本项目为**非官方第三方工具**，与 DeepSeek 官方无任何关联，仅作为浏览器端效率增强开源分享；
+- 扩展依赖 DeepSeek 网页版当前的接口与页面结构实现，官方更新可能导致功能失效；
+- 请在使用前了解并遵守 DeepSeek 的服务条款，使用本扩展产生的任何风险由使用者自行承担。
 
 ## 开源协议
 

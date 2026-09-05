@@ -74,6 +74,22 @@ Tailwind 令牌全部跟随基准变量，宿主字号变化时排版等比缩�
 | 折叠 | `grid-template-rows 0fr↔1fr` + opacity，180ms | 文件夹展开 |
 | z-index | menu 9990 < toast 9998 < modal 9999 | Shadow DOM 内 |
 
+### 2.5 主题判定与切换
+
+判定信号按可靠性排序（`detectTheme`）：
+
+1. html / body 显式标记（`class="dark"` 或 `data-theme="dark"`）；
+2. 根元素 `color-scheme` 声明；
+3. **宿主实测**：原生侧边栏纸面亮度（感知加权和，与任何换肤机制无关的权威信号，
+   列表未渲染或背景全透明时跳过）；
+4. 系统偏好兜底。
+
+- `watchTheme` 同时观察 html / body 的 class、data-theme 变化与系统偏好切换；
+- **切换时先清除旧的内联基准变量再重提取**：提取结果以内联变量写入 `.dsf-root`，
+  优先级高于 `.dark` 回退色板——若切换后某项提取瞬时失败（如列表不可见），
+  残留的旧主题内联值会造成明暗错配，清除后该项自然回落色板；
+- `color-scheme` 跟随主题写入 `.dsf-root`，保证输入光标 / 选区等 UA 原生组件正确渲染。
+
 ## 3. 布局与滚动
 
 - **滚动自持**：host 复刻原生列表的 flex 伸展/显式高度并 `overflow-y: auto`，
@@ -112,7 +128,10 @@ padding: 4px 10px；圆角 var(--dsf-radius)；120ms 颜色过渡
 
 - 图标 14–16px、stroke-width 2、中性色；行 hover 联动提亮（`.dsf-icon--group-hover*`）
 - hover 操作组：胶囊底色用 `--dsf-hover-solid`（hover 等效实色，融入行底，无色块感）
-- 计数徽章 11px faint，hover 让位淡出
+- 计数徽章 11px faint，hover 让位淡出；文件夹徽章显示**子树内全部对话数**
+  （含子级文件夹中的对话，不含子级文件夹本身），`title` 提示「含子级文件夹共 N 个对话」
+- 对话行变体（ChatItem 覆盖）：`py-[3px]` + `min-h-[28px]`，比文件夹头更紧凑
+  （覆盖工具类与 `.dsf-row` 同特异性，级联靠后者胜）
 
 ### 4.2 新建文件夹按钮（幽灵操作行）
 
@@ -174,4 +193,6 @@ padding: 4px 10px；圆角 var(--dsf-radius)；120ms 颜色过渡
 | `.dsf-drop-active` | 放置目标反馈（中性底 + 内描边） | App / FolderItem |
 | `.dsf-enter` / `.dsf-pop` / `.dsf-fade-*` | 进入/过渡动画 | 各浮层与 FolderItem |
 | `data-dsf-kind` | 拖拽类型过滤 | utils/dnd.ts |
+| `dsf-dark`（host class） | 暗色滚动条令牌作用域（`:host(.dsf-dark)`） | content/main.ts 随主题同步 |
+| `dsf-sb-pressing`（host class） | 滚动条按压态（拖动滑块 / 按住轨道） | content/main.ts 滚动突发分类 |
 | `ACTION_MENU_WIDTH` | 菜单宽度常量导出 | ActionMenu（勿在 App 复制） |
